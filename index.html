@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arc Hub — The Arc Ecosystem Directory</title>
+  <meta name="description" content="Discover premium projects, platforms, and builders shaping the future of the Arc ecosystem.">
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Centered Search Sticky Header Navbar -->
+  <header class="header">
+    <div class="nav-container">
+      <!-- LEFT: Arc Hub Logo -->
+      <a href="#/home" class="logo-link" id="nav-logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="2"/>
+          <path d="M7 17L12 7L17 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="9" y1="13" x2="15" y2="13" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span class="logo-text">Arc <span class="accent-text">Hub</span></span>
+      </a>
+      
+      <!-- CENTER: Capsule Search Bar (Width: 500px, Height: 44px) -->
+      <div class="nav-search-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="nav-search-input" placeholder="Search projects, categories, builders...">
+      </div>
+
+      <!-- RIGHT: Desktop Navigation Links -->
+      <nav class="desktop-nav">
+        <a href="#/home" class="nav-item" id="link-home">Home</a>
+        <a href="#/projects" class="nav-item" id="link-projects">Projects</a>
+        <a href="#/builders" class="nav-item" id="link-builders">Builders</a>
+        <a href="#/about" class="nav-item" id="link-about">About</a>
+        <a href="#/submit" class="nav-btn" id="link-submit">Submit Project</a>
+      </nav>
+
+      <!-- Hamburger mobile toggler -->
+      <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Open Navigation Menu">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="6" x2="20" y2="6"></line>
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <line x1="4" y1="18" x2="20" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Navigation Drawer Overlay -->
+  <div class="mobile-drawer" id="mobile-drawer">
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <span class="logo-text">Arc <span class="accent-text">Hub</span></span>
+        <button class="drawer-close" id="drawer-close-btn" aria-label="Close Navigation Menu">&times;</button>
+      </div>
+      
+      <!-- Mobile Capsule Search Bar inside Drawer -->
+      <div class="mobile-search-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 8px;">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="mob-search-input" placeholder="Search projects...">
+      </div>
+
+      <nav class="mobile-nav">
+        <a href="#/home" class="mobile-nav-item" id="mob-link-home">Home</a>
+        <a href="#/projects" class="mobile-nav-item" id="mob-link-projects">Projects</a>
+        <a href="#/builders" class="mobile-nav-item" id="mob-link-builders">Builders</a>
+        <a href="#/about" class="mobile-nav-item" id="mob-link-about">About</a>
+        <a href="#/submit" class="mobile-nav-btn" id="mob-link-submit">Submit Project</a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Router Container -->
+  <main class="main-content">
+    
+    <!-- SECTION: HOME -->
+    <section id="section-home" class="page-section active">
+      
+      <!-- SECTION 1: Hero Split Container -->
+      <div class="container hero-split-section">
+        <!-- Left Side Info Column -->
+        <div class="hero-info-column">
+          <h1 class="hero-title-main">Discover the <br><span class="gradient-text">Arc Ecosystem</span></h1>
+          <p class="hero-subtitle-main">Explore a curated collection of applications, infrastructure components, and developer tools building on Arc.</p>
+          
+
+          
+          <!-- Category Filters sitting directly in Hero left side -->
+          <div class="hero-filters-wrapper">
+            <span class="filter-label">Categories</span>
+            <div class="category-filters-container" id="homepage-category-filters-pills">
+              <!-- Dynamic Category Pills: All, AI, DeFi, Payments, Infrastructure, Tools, Community -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side Large Web3 Ecosystem Orbit Visual Illustration -->
+        <div class="hero-graphic-column">
+          <div class="orbit-visual-wrapper">
+            <svg class="orbit-svg" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Background Ambient Glow -->
+              <circle cx="200" cy="200" r="160" fill="url(#radial-glow)" opacity="0.15" />
+              
+              <!-- Orbit Rings -->
+              <circle cx="200" cy="200" r="140" stroke="#1F1F1F" stroke-width="1" stroke-dasharray="4 4" />
+              <circle cx="200" cy="200" r="100" stroke="#1C1C1E" stroke-width="1.5" />
+              <circle cx="200" cy="200" r="60" stroke="#1C1C1E" stroke-width="1.2" stroke-dasharray="2 2" />
+              
+              <!-- Connection Lines -->
+              <line x1="200" y1="200" x2="200" y2="60" stroke="#1F1F1F" stroke-width="1.5" />
+              <line x1="200" y1="200" x2="280" y2="140" stroke="#1F1F1F" stroke-width="1.5" />
+              <line x1="200" y1="200" x2="320" y2="280" stroke="#1F1F1F" stroke-width="1.5" />
+              <line x1="200" y1="200" x2="80" y2="200" stroke="#1F1F1F" stroke-width="1.5" />
+              <line x1="200" y1="200" x2="100" y2="300" stroke="#1F1F1F" stroke-width="1.5" />
+              <line x1="200" y1="200" x2="290" y2="270" stroke="#1F1F1F" stroke-width="1.5" />
+              
+              <!-- Central Arc Node -->
+              <g class="central-node">
+                <circle cx="200" cy="200" r="28" fill="#0A0A0C" stroke="#FFFFFF" stroke-width="2" />
+                <image href="arc-logo.png" x="183" y="183" width="34" height="34" class="central-logo-img" />
+                <circle cx="200" cy="200" r="28" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3" class="pulsate-ring-slow" />
+              </g>
+
+              <!-- Connected Ecosystem Nodes (Category-themed accents) -->
+              <!-- Node 1: AI (Soft Purple) on inner orbit -->
+              <g class="orbit-node node-ai">
+                <circle cx="200" cy="60" r="8" fill="#000000" stroke="#A78BFA" stroke-width="2" />
+                <circle cx="200" cy="60" r="14" stroke="#A78BFA" stroke-width="1" opacity="0.4" class="pulsate-ring" />
+              </g>
+              
+              <!-- Node 2: DeFi (Emerald Green) on middle orbit -->
+              <g class="orbit-node node-defi">
+                <circle cx="280" cy="140" r="9" fill="#000000" stroke="#34D399" stroke-width="2" />
+                <circle cx="280" cy="140" r="15" stroke="#34D399" stroke-width="1" opacity="0.4" class="pulsate-ring" />
+              </g>
+
+              <!-- Node 3: Payments (Electric Blue) on outer orbit -->
+              <g class="orbit-node node-payments">
+                <circle cx="320" cy="280" r="10" fill="#000000" stroke="#60A5FA" stroke-width="2" />
+                <circle cx="320" cy="280" r="16" stroke="#60A5FA" stroke-width="1" opacity="0.4" class="pulsate-ring" />
+              </g>
+
+              <!-- Node 4: Infrastructure (Slate Gray) on inner orbit -->
+              <g class="orbit-node node-infra">
+                <circle cx="80" cy="200" r="7" fill="#000000" stroke="#94A3B8" stroke-width="2" />
+              </g>
+
+              <!-- Node 5: Tools (Amber) on middle orbit -->
+              <g class="orbit-node node-tools">
+                <circle cx="100" cy="300" r="9" fill="#000000" stroke="#FBBF24" stroke-width="2" />
+                <circle cx="100" cy="300" r="15" stroke="#FBBF24" stroke-width="1" opacity="0.4" class="pulsate-ring" />
+              </g>
+
+              <!-- Node 6: Community (Cyan) on outer orbit -->
+              <g class="orbit-node node-community">
+                <circle cx="290" cy="270" r="9" fill="#000000" stroke="#22D3EE" stroke-width="2" />
+                <circle cx="290" cy="270" r="15" stroke="#22D3EE" stroke-width="1" opacity="0.4" class="pulsate-ring" />
+              </g>
+
+              <!-- Gradients & Glow definitions -->
+              <defs>
+                <radialGradient id="radial-glow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                  <stop offset="0%" stop-color="#FFFFFF" />
+                  <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- SECTION 3: Featured Projects Section -->
+      <div class="container featured-projects-section">
+        <div class="section-header-row">
+          <div>
+            <h2 class="section-title">Featured Ecosystem Projects</h2>
+            <p class="section-subtitle">A curated collection of tools and platforms building on Arc, filtered in real time.</p>
+          </div>
+        </div>
+        
+        <!-- Project cards grid -->
+        <div class="project-grid" id="featured-projects-grid">
+          <!-- Dynamic insertion: 6 premium cards -->
+        </div>
+        
+        <!-- View All Projects Button -->
+        <div class="view-all-wrapper">
+          <a href="#/projects" class="btn-premium btn-secondary-premium">Browse All Projects</a>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SECTION: PROJECTS -->
+    <section id="section-projects" class="page-section">
+      <div class="container page-header-wrapper">
+        <h1 class="page-title">Ecosystem Directory</h1>
+        <p class="page-description">Explore verified projects, developer tooling, and decentralized protocols building in the Arc ecosystem.</p>
+        
+        <!-- Filter Bar -->
+        <div class="filter-controls">
+          <div class="category-filters-container" id="category-filters-pills">
+            <!-- Dynamic Category Pills -->
+          </div>
+        </div>
+
+        <div class="results-meta">
+          <span id="results-count">Showing 0 projects</span>
+        </div>
+
+        <!-- Directory Grid -->
+        <div class="project-grid" id="directory-projects-grid">
+          <!-- Dynamic Projects Directory -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: ABOUT -->
+    <section id="section-about" class="page-section">
+      <div class="container page-header-wrapper">
+
+        <!-- Page Header -->
+        <h1 class="page-title">About Arc Hub</h1>
+        <p class="page-description">A community-driven ecosystem directory for the Arc ecosystem.</p>
+
+        <!-- Two-column main layout -->
+        <div class="about-layout">
+
+          <!-- LEFT: Main About Card -->
+          <div class="about-main-card">
+            <div class="about-arc-hub-label">Overview</div>
+            <h2 class="about-arc-hub-title" id="about-arc-hub-title">What is Arc Hub?</h2>
+
+            <div class="about-main-body">
+              <p>Arc Hub is an independent ecosystem directory designed to help users discover the projects, builders, and infrastructure shaping the Arc ecosystem.</p>
+              <p>From developer tools and DeFi applications to community initiatives and emerging platforms, Arc Hub brings everything together in one accessible hub.</p>
+              <p>Whether you're building on Arc or exploring what the ecosystem has to offer, Arc Hub makes it easier to find, showcase, and connect with the people and projects driving innovation.</p>
+            </div>
+
+            <!-- Support & Feedback footer inside card -->
+            <div class="about-main-footer">
+              <h3 class="about-support-title">Support &amp; Feedback</h3>
+              <p class="about-support-desc">Arc Hub is actively evolving and community feedback plays a key role in shaping future updates.<br><br>Have suggestions, feature requests, partnership opportunities, or found a bug?</p>
+              
+              <div class="about-support-contact">
+                <span class="about-support-label">Contact:</span>
+                <div class="about-contact-icons">
+                  <a href="https://x.com/Mrlsharkx" target="_blank" rel="noopener noreferrer" class="about-icon-btn" aria-label="X (Twitter) — @Mrlsharkx">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  </a>
+                  <a href="mailto:archubsupport@gmail.com" class="about-icon-btn" aria-label="Email — archubsupport@gmail.com">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                      <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Info Column -->
+          <div class="about-info-col">
+
+            <!-- Platform Stats -->
+            <div class="about-info-card" id="about-stats">
+              <div class="about-info-card-header" style="margin-bottom: 16px;">
+                <h3 class="about-info-card-title">Platform Stats</h3>
+              </div>
+              <ul class="about-roadmap-list" style="gap: 8px;">
+                <li><span style="width: 100%; display: flex; justify-content: space-between;">Projects Listed: <strong id="about-stats-projects" style="color: var(--text-title); font-weight: 600;">0</strong></span></li>
+                <li><span style="width: 100%; display: flex; justify-content: space-between;">Builders Registered: <strong id="about-stats-builders" style="color: var(--text-title); font-weight: 600;">0</strong></span></li>
+                <li><span style="width: 100%; display: flex; justify-content: space-between;">Categories: <strong id="about-stats-categories" style="color: var(--text-title); font-weight: 600;">0</strong></span></li>
+                <li>
+                  <span style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                    Platform Status: 
+                    <div class="about-status-badge" style="margin-bottom: 0; padding: 2px 8px;">
+                      <span class="about-status-dot"></span>
+                      <span>Beta</span>
+                    </div>
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Upcoming Features -->
+            <div class="about-info-card" id="about-roadmap">
+              <div class="about-info-card-header">
+                <h3 class="about-info-card-title">Coming Soon</h3>
+              </div>
+              <ul class="about-roadmap-list">
+                <li><span>Builder profiles</span></li>
+                <li><span>Project management</span></li>
+                <li><span>Verification badges</span></li>
+                <li><span>Analytics dashboard</span></li>
+                <li><span>Advanced filtering</span></li>
+                <li><span>Community engagement tools</span></li>
+              </ul>
+            </div>
+
+          </div><!-- /.about-info-col -->
+        </div><!-- /.about-layout -->
+
+      </div>
+    </section>
+
+
+    <!-- SECTION: BUILDERS -->
+    <section id="section-builders" class="page-section">
+      <div class="container page-header-wrapper">
+        <h1 class="page-title">Builders Directory</h1>
+        <p class="page-description">Connect with engineers, designers, and web3 founders deploying core applications on Arc.</p>
+        
+        <!-- Builders Grid -->
+        <div class="builder-grid" id="builders-grid">
+          <!-- Dynamic Builders Deck -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: SUBMIT PROJECT -->
+    <section id="section-submit" class="page-section">
+      <div class="container page-header-wrapper max-w-form">
+        <h1 class="page-title">Submit your Project</h1>
+        <p class="page-description">Register your product in the community directory to gain visibility and recruit early adopters.</p>
+        
+        <!-- Submission Form Box -->
+        <div class="form-container-premium">
+          
+          <!-- Success State -->
+          <div id="submit-success-card" class="success-card-premium hidden">
+            <div class="success-icon-wrapper-premium">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h3 class="success-title">Project Submitted</h3>
+            <p class="success-message">Your application has been listed. You can now browse the directory to find it.</p>
+            <div class="success-actions-premium">
+              <a href="#/projects" class="btn-premium btn-primary-premium">View Directory</a>
+              <button type="button" class="btn-premium btn-secondary-premium" id="submit-another-btn">Submit Another</button>
+            </div>
+          </div>
+
+          <!-- Submission Form -->
+          <form id="project-submission-form" class="submit-form-premium">
+            <div class="form-row">
+              <div class="form-group-premium">
+                <label for="form-project-name">Project Name <span class="req">*</span></label>
+                <input type="text" id="form-project-name" required placeholder="e.g. Aura Swap">
+              </div>
+              <div class="form-group-premium">
+                <label for="form-category">Category <span class="req">*</span></label>
+                <select id="form-category" required>
+                  <option value="" disabled selected>Select category</option>
+                  <option value="AI">AI</option>
+                  <option value="DeFi">DeFi</option>
+                  <option value="Payments">Payments</option>
+                  <option value="Infrastructure">Infrastructure</option>
+                  <option value="Tools">Tools</option>
+                  <option value="Community">Community</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group-premium">
+              <label for="form-description">Short Description <span class="req">*</span></label>
+              <textarea id="form-description" rows="3" required placeholder="Brief, high-impact description of what you are building (max 150 chars)..." maxlength="150"></textarea>
+              <div class="form-meta-row">
+                <span class="field-hint">Focus on value proposition and tech stack.</span>
+                <span class="char-counter-text"><span id="char-count">0</span> / 150</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-premium">
+                <label for="form-website">Website URL <span class="req">*</span></label>
+                <input type="url" id="form-website" required placeholder="https://yourproject.com">
+              </div>
+              <div class="form-group-premium">
+                <label for="form-twitter">X / Twitter URL</label>
+                <input type="url" id="form-twitter" placeholder="https://x.com/yourproject">
+              </div>
+            </div>
+
+            <div class="form-group-premium">
+              <label for="form-builder-name">Builder / Founder Name <span class="req">*</span></label>
+              <input type="text" id="form-builder-name" required placeholder="e.g. Satoshi Nakamoto">
+            </div>
+
+            <!-- Optional Project Logo Upload -->
+            <div class="form-group-premium">
+              <label>Project Logo</label>
+              <div class="upload-dropzone" id="logo-dropzone">
+                <input type="file" id="form-logo-input" accept=".png,.jpg,.jpeg,.svg,.webp" style="display: none;">
+                <div class="upload-prompt" id="upload-prompt">
+                  <svg viewBox="0 0 24 24" class="upload-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                  </svg>
+                  <span class="upload-text">Drag & drop logo here, or <span class="upload-link">browse</span></span>
+                  <span class="upload-hint">Supports PNG, JPG, JPEG, SVG, WebP (Max 5MB)</span>
+                </div>
+                <div class="upload-preview-container hidden" id="upload-preview-container">
+                  <div class="preview-wrapper">
+                    <img id="logo-preview-image" src="" alt="Logo Preview" class="logo-preview">
+                  </div>
+                  <div class="preview-info">
+                    <span class="preview-filename" id="preview-filename">logo.png</span>
+                    <button type="button" class="btn-remove-logo" id="btn-remove-logo">Remove</button>
+                  </div>
+                </div>
+              </div>
+              <div class="upload-error hidden" id="upload-error-msg"></div>
+            </div>
+
+            <!-- Beta Warning Notice Card -->
+            <div class="beta-notice-card">
+              <div class="beta-notice-header">
+                <svg viewBox="0 0 24 24" class="beta-notice-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <h4 class="beta-notice-title">⚠️ Beta Notice</h4>
+              </div>
+              <div class="beta-notice-body">
+                <p>Arc Hub is currently in beta.</p>
+                <p>Before submitting your project:</p>
+                <ul class="beta-notice-list">
+                  <li>Ensure all project details are accurate and up to date.</li>
+                  <li>Double-check your website URL, social links, and project description.</li>
+                  <li>Duplicate projects are not allowed.</li>
+                  <li>Uploaded project information will be publicly visible in the directory.</li>
+                  <li>Editing or deleting submitted projects is currently not supported.</li>
+                  <li>Please review all information carefully before submission.</li>
+                </ul>
+                <p class="beta-notice-footer">We are actively improving the platform and additional management features will be available in future updates.</p>
+              </div>
+            </div>
+ 
+            <button type="submit" class="btn-submit-premium">
+              <span>List Project</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Sticky Footer -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-left">
+        <span class="logo-text footer-logo">Arc <span class="accent-text">Hub</span></span>
+        <p class="footer-tagline">Curated Directory of the Arc Ecosystem.</p>
+      </div>
+      <div class="footer-right">
+        <p class="footer-note">Built for the Arc Community</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Premium Custom Notification Modal (Centered with Blurred Backdrop) -->
+  <div id="custom-notification" class="notification-overlay hidden">
+    <div class="notification-box">
+      <button class="notification-close-btn" id="notification-close-btn" aria-label="Close Notification">&times;</button>
+      <div class="notification-content">
+        <!-- Dynamic Icon Container -->
+        <div id="notification-icon-container" class="notification-icon-wrapper"></div>
+        <!-- Title & Message -->
+        <h3 id="notification-title" class="notification-title">Notification</h3>
+        <p id="notification-message" class="notification-message">Message text goes here.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Router & Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
