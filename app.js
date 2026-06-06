@@ -14,35 +14,58 @@ const CATEGORIES = ["AI", "DeFi", "Payments", "Infrastructure", "Tools", "Commun
 // --- 2. STATE MANAGER ---
 class StateManager {
   constructor() {
-    // Clear legacy demo data on first load to enforce an empty state
-    if (!localStorage.getItem("archub_cleared_legacy")) {
-      localStorage.removeItem("archub_projects_restructured");
-      localStorage.removeItem("archub_builders_restructured");
-      localStorage.setItem("archub_cleared_legacy", "true");
+    this.projects = [];
+    this.builders = [];
+    this.userLikes = new Set();
+    this.isLoaded = false;
+  }
+
+  async fetchInitialData() {
+    try {
+      if (window.ArcFirebase && window.ArcFirebase.getProjects) {
+        this.projects = await window.ArcFirebase.getProjects();
+      } else {
+        await new Promise(r => setTimeout(r, 200));
+        this.projects = window.ArcFirebase ? await window.ArcFirebase.getProjects() : [];
+      }
+      
+      const currentUser = window.ArcFirebase?.currentUser;
+      if (currentUser && window.ArcFirebase.getUserLikes) {
+        const likedIds = await window.ArcFirebase.getUserLikes(currentUser.uid);
+        this.userLikes = new Set(likedIds);
+      } else {
+        this.userLikes = new Set();
+      }
+      
+      const builderMap = new Map();
+      this.projects.forEach(p => {
+        const builderId = p.builderName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        if (!builderMap.has(builderId)) {
+          builderMap.set(builderId, {
+            id: builderId,
+            name: p.builderName,
+            projectName: p.name,
+            socialUrl: p.xUrl || "https://x.com",
+            avatarUrl: p.userPhotoURL || p.builderAvatar || ""
+          });
+        }
+      });
+      this.builders = Array.from(builderMap.values());
+      this.isLoaded = true;
+    } catch (err) {
+      console.error("Failed to load data from Firestore:", err);
+      this.projects = [];
+      this.builders = [];
+      this.userLikes = new Set();
     }
-
-    this.projects = this.loadProjects();
-    this.builders = this.loadBuilders();
   }
 
-  loadProjects() {
-    const saved = localStorage.getItem("archub_projects_restructured");
-    return saved ? JSON.parse(saved) : [...DEFAULT_PROJECTS];
-  }
-
-  loadBuilders() {
-    const saved = localStorage.getItem("archub_builders_restructured");
-    return saved ? JSON.parse(saved) : [...DEFAULT_BUILDERS];
-  }
-
-  saveToStorage() {
-    localStorage.setItem("archub_projects_restructured", JSON.stringify(this.projects));
-    localStorage.setItem("archub_builders_restructured", JSON.stringify(this.builders));
-  }
-
-  addProject(projectData) {
+  async addProject(projectData) {
     const projectId = projectData.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
     
+    const currentUser = window.ArcFirebase ? window.ArcFirebase.currentUser : null;
+    if (!currentUser) throw new Error("Unauthenticated");
+
     const newProject = {
       id: projectId,
       name: projectData.name,
@@ -51,30 +74,138 @@ class StateManager {
       website: projectData.website,
       xUrl: projectData.xUrl || "",
       builderName: projectData.builderName,
-      logo: projectData.logo || ""
+      logo: projectData.logo || "",
+      createdAt: new Date().toISOString(),
+      likesCount: 0,
+      userId: currentUser.uid,
+      userEmail: currentUser.email || "",
+      userName: currentUser.displayName || "",
+      userPhotoURL: currentUser.photoURL || "",
+      // Keep legacy fields for compatibility
+      submitterEmail: currentUser.email || "",
+      submitterName: currentUser.displayName || "",
+      builderAvatar: currentUser.photoURL || ""
     };
     
-    this.projects.unshift(newProject);
+    try {
+      const savedProject = await window.ArcFirebase.saveProject(newProject);
+      this.projects.unshift(savedProject);
 
-    const builderId = projectData.builderName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    const builderExists = this.builders.some(b => b.id === builderId);
-    
-    if (!builderExists) {
-      const newBuilder = {
-        id: builderId,
-        name: projectData.builderName,
-        projectName: projectData.name,
-        socialUrl: projectData.xUrl || "https://x.com"
-      };
-      this.builders.unshift(newBuilder);
+      const builderId = projectData.builderName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      const builderExists = this.builders.some(b => b.id === builderId);
+      if (!builderExists) {
+        this.builders.unshift({
+          id: builderId,
+          name: projectData.builderName,
+          projectName: projectData.name,
+          socialUrl: projectData.xUrl || "https://x.com",
+          avatarUrl: currentUser.photoURL || ""
+        });
+      }
+      return savedProject;
+    } catch (err) {
+      console.error("Error adding project:", err);
+      throw err;
     }
+  }
 
-    this.saveToStorage();
-    return newProject;
+  async updateProject(projectId, projectData) {
+    const currentUser = window.ArcFirebase ? window.ArcFirebase.currentUser : null;
+    if (!currentUser) throw new Error("Unauthenticated");
+
+    const originalProject = this.projects.find(p => p.id === projectId);
+    if (!originalProject) throw new Error("Project not found");
+
+    const isOwner = originalProject.userId === currentUser.uid || 
+                    (originalProject.submitterEmail && originalProject.submitterEmail === currentUser.email);
+    if (!isOwner) throw new Error("Unauthorized");
+
+    const updatedProject = {
+      ...originalProject,
+      name: projectData.name,
+      description: projectData.description,
+      category: projectData.category,
+      website: projectData.website,
+      xUrl: projectData.xUrl || "",
+      builderName: projectData.builderName,
+      logo: projectData.logo || "",
+      userId: originalProject.userId || currentUser.uid,
+      userEmail: originalProject.userEmail || currentUser.email || "",
+      userName: originalProject.userName || currentUser.displayName || "",
+      userPhotoURL: originalProject.userPhotoURL || currentUser.photoURL || ""
+    };
+
+    try {
+      const savedProject = await window.ArcFirebase.updateProject(projectId, updatedProject);
+      
+      const idx = this.projects.findIndex(p => p.id === projectId);
+      if (idx !== -1) {
+        this.projects[idx] = savedProject;
+      }
+
+      // Re-update builders list
+      const builderMap = new Map();
+      this.projects.forEach(p => {
+        const builderId = p.builderName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        if (!builderMap.has(builderId)) {
+          builderMap.set(builderId, {
+            id: builderId,
+            name: p.builderName,
+            projectName: p.name,
+            socialUrl: p.xUrl || "https://x.com",
+            avatarUrl: p.builderAvatar || ""
+          });
+        }
+      });
+      this.builders = Array.from(builderMap.values());
+      
+      return savedProject;
+    } catch (err) {
+      console.error("Error updating project:", err);
+      throw err;
+    }
+  }
+
+  async deleteProject(projectId) {
+    const currentUser = window.ArcFirebase ? window.ArcFirebase.currentUser : null;
+    if (!currentUser) throw new Error("Unauthenticated");
+
+    const originalProject = this.projects.find(p => p.id === projectId);
+    if (!originalProject) throw new Error("Project not found");
+
+    const isOwner = originalProject.userId === currentUser.uid || 
+                    (originalProject.submitterEmail && originalProject.submitterEmail === currentUser.email);
+    if (!isOwner) throw new Error("Unauthorized");
+
+    try {
+      await window.ArcFirebase.deleteProject(projectId);
+      
+      this.projects = this.projects.filter(p => p.id !== projectId);
+
+      // Re-update builders list
+      const builderMap = new Map();
+      this.projects.forEach(p => {
+        const builderId = p.builderName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        if (!builderMap.has(builderId)) {
+          builderMap.set(builderId, {
+            id: builderId,
+            name: p.builderName,
+            projectName: p.name,
+            socialUrl: p.xUrl || "https://x.com",
+            avatarUrl: p.builderAvatar || ""
+          });
+        }
+      });
+      this.builders = Array.from(builderMap.values());
+
+      return true;
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      throw err;
+    }
   }
 
   getFeaturedProjects() {
-    // Show all 6 default projects (or top 6 projects in list)
     return this.projects.slice(0, 6);
   }
 }
@@ -155,10 +286,64 @@ function getInitialLetter(name) {
 // --- 4. RENDER ENGINE ---
 const renderEngine = {
   // Compile project card template
-  createProjectCardHtml(project) {
+  createProjectCardHtml(project, isDashboard = false) {
     const logoMarkup = getProjectLogoSVG(project);
-    const builderLetter = getInitialLetter(project.builderName);
+    const likesCount = project.likesCount || 0;
+    const isLiked = state.userLikes.has(project.id);
+
+    const likeButton = `
+      <button class="btn-like-project ${isLiked ? 'liked' : ''}" data-project-id="${project.id}" title="${isLiked ? 'Unlike' : 'Like'} this project">
+        <svg viewBox="0 0 24 24" class="heart-icon">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <span class="like-count">${likesCount}</span>
+      </button>
+    `;
     
+    if (isDashboard) {
+      // Management dashboard layout: Show Edit/Delete, hide builder details and socials, show likes in footer
+      return `
+        <article class="project-card dashboard-card">
+          <div class="card-header">
+            <div class="project-logo-container">
+              ${logoMarkup}
+            </div>
+            <span class="category-badge badge-${project.category.toLowerCase()}">${project.category}</span>
+          </div>
+          <h3 class="project-name">${project.name}</h3>
+          <p class="project-desc">${project.description}</p>
+          
+          <div class="project-card-actions">
+            <button class="btn-card-action btn-edit-project" data-project-id="${project.id}" title="Edit Project">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-right: 4px;">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Edit
+            </button>
+            <button class="btn-card-action btn-delete-project" data-project-id="${project.id}" title="Delete Project">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-right: 4px;">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              Delete
+            </button>
+          </div>
+          
+          <div class="card-footer">
+            ${likeButton}
+            <a href="${project.website}" target="_blank" rel="noopener noreferrer" class="card-action-btn" aria-label="View Project">
+              <span>View Project &nearr;</span>
+            </a>
+          </div>
+        </article>
+      `;
+    }
+
+    // Public list layout: Keep builder info and View Project, hide management actions
+    const builderLetter = getInitialLetter(project.builderName);
     const xLink = project.xUrl ? `
       <a href="${project.xUrl}" target="_blank" rel="noopener noreferrer" class="card-icon-link" aria-label="Twitter X Profile">
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -177,13 +362,8 @@ const renderEngine = {
         <h3 class="project-name">${project.name}</h3>
         <p class="project-desc">${project.description}</p>
         <div class="card-footer">
-          <div class="builder-meta">
-            <div class="builder-avatar">${builderLetter}</div>
-            <span class="builder-name-text">${project.builderName}</span>
-          </div>
-          <div class="card-center-link">
-            ${xLink}
-          </div>
+          <span class="card-footer-owner">By ${project.builderName}</span>
+          ${likeButton}
           <a href="${project.website}" target="_blank" rel="noopener noreferrer" class="card-action-btn" aria-label="View Project">
             <span>View Project &nearr;</span>
           </a>
@@ -229,14 +409,20 @@ const renderEngine = {
   },
 
   // Render project directory with filter and search
-  renderDirectory(categoryFilter = "All", searchQuery = "") {
+  renderDirectory(categoryFilter = "All", searchQuery = "", myProjectsOnly = false) {
     const grid = document.getElementById("directory-projects-grid");
     const countEl = document.getElementById("results-count");
     if (!grid) return;
 
     const query = searchQuery.trim().toLowerCase();
+    const currentUserEmail = window.ArcFirebase?.currentUser?.email;
     
     const filtered = state.projects.filter(p => {
+      // My Projects Filter
+      if (myProjectsOnly) {
+        if (!currentUserEmail || p.submitterEmail !== currentUserEmail) return false;
+      }
+
       const matchCat = (categoryFilter === "All" || p.category.toLowerCase() === categoryFilter.toLowerCase());
       const matchSearch = !query || 
         p.name.toLowerCase().includes(query) || 
@@ -256,20 +442,89 @@ const renderEngine = {
     }
 
     if (filtered.length === 0) {
+      let title = state.projects.length === 0 ? "No projects listed yet." : "No projects found in this category.";
+      let desc = state.projects.length === 0 ? "Be the first builder to submit a project." : "Try clearing your search filter or selecting a different category.";
+      
+      if (myProjectsOnly) {
+        title = "You haven't submitted any projects yet.";
+        desc = "Click Submit Project to add your first project.";
+      }
+
       grid.innerHTML = `
         <div class="empty-state">
           <svg viewBox="0 0 24 24" class="empty-state-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <h4 class="empty-state-title">${state.projects.length === 0 ? "No projects listed yet." : "No projects found in this category."}</h4>
-          <p class="empty-state-desc">${state.projects.length === 0 ? "Be the first builder to submit a project." : "Try clearing your search filter or selecting a different category."}</p>
+          <h4 class="empty-state-title">${title}</h4>
+          <p class="empty-state-desc">${desc}</p>
         </div>
       `;
       return;
     }
 
     grid.innerHTML = filtered.map(p => this.createProjectCardHtml(p)).join("");
+  },
+
+  renderMyProjects() {
+    const grid = document.getElementById("my-projects-grid");
+    const countEl = document.getElementById("my-projects-results-count");
+    if (!grid) return;
+
+    const currentUser = window.ArcFirebase?.currentUser;
+    if (!currentUser) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <h4 class="empty-state-title">Authentication Required</h4>
+          <p class="empty-state-desc">Please sign in to view your projects.</p>
+          <button class="nav-btn btn-primary-premium btn-signin" style="margin-top: 16px; border: none; cursor: pointer;">Sign In</button>
+        </div>
+      `;
+      grid.querySelector(".btn-signin")?.addEventListener("click", async (e) => {
+        e.preventDefault();
+        try {
+          await window.ArcFirebase.signInWithGoogle();
+        } catch (err) {
+          console.error("Sign in failed:", err);
+        }
+      });
+      if (countEl) countEl.textContent = "Showing 0 projects";
+      return;
+    }
+
+    const currentUserId = currentUser.uid;
+    const currentUserEmail = currentUser.email;
+
+    const filtered = state.projects.filter(p => {
+      return (p.userId === currentUserId) || (p.submitterEmail && p.submitterEmail === currentUserEmail);
+    });
+
+    if (countEl) {
+      if (filtered.length === 1) {
+        countEl.textContent = "Showing 1 project";
+      } else {
+        countEl.textContent = `Showing ${filtered.length} projects`;
+      }
+    }
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" class="empty-state-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <h4 class="empty-state-title">You haven't submitted any projects yet.</h4>
+          <p class="empty-state-desc">Click Submit Project to add your first project.</p>
+          <a href="#/submit" class="btn-premium btn-primary-premium" style="margin-top: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <span>Submit Project</span>
+          </a>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(p => this.createProjectCardHtml(p, true)).join("");
   },
 
   // Render builders page list (dedicated view)
@@ -289,10 +544,13 @@ const renderEngine = {
 
     grid.innerHTML = state.builders.map(builder => {
       const letter = getInitialLetter(builder.name);
+      const avatarHtml = builder.avatarUrl ?
+        `<img src="${builder.avatarUrl}" alt="${builder.name}" class="builder-avatar-image" />` :
+        letter;
       return `
         <article class="builder-card">
           <div class="builder-card-header">
-            <div class="builder-card-avatar">${letter}</div>
+            <div class="builder-card-avatar">${avatarHtml}</div>
           </div>
           <div class="builder-card-content">
             <h3 class="builder-card-name">${builder.name}</h3>
@@ -329,10 +587,13 @@ const renderEngine = {
 
     grid.innerHTML = list.map(builder => {
       const letter = getInitialLetter(builder.name);
+      const avatarHtml = builder.avatarUrl ?
+        `<img src="${builder.avatarUrl}" alt="${builder.name}" class="builder-avatar-image" />` :
+        letter;
       return `
         <article class="builder-card">
           <div class="builder-card-header">
-            <div class="builder-card-avatar">${letter}</div>
+            <div class="builder-card-avatar">${avatarHtml}</div>
           </div>
           <div class="builder-card-content">
             <h3 class="builder-card-name">${builder.name}</h3>
@@ -390,21 +651,25 @@ const router = {
   routes: {
     "home": "section-home",
     "projects": "section-projects",
+    "my-projects": "section-my-projects",
     "builders": "section-builders",
     "about": "section-about",
     "submit": "section-submit"
   },
   activeCategory: "All",
   searchQuery: "",
+  myProjectsOnly: false,
 
-  init() {
+  async init() {
     window.addEventListener("hashchange", () => this.handleRoute());
     
-    // Execute immediately since we are already inside a DOMContentLoaded listener
+    await state.fetchInitialData();
+
     this.handleRoute();
     // Compile grids
     renderEngine.renderFeatured();
-    renderEngine.renderDirectory(this.activeCategory, this.searchQuery);
+    renderEngine.renderDirectory(this.activeCategory, this.searchQuery, this.myProjectsOnly);
+    renderEngine.renderMyProjects();
     renderEngine.renderBuilders();
     renderEngine.renderHomepageBuilders();
     renderEngine.renderCategoryFilters(this.activeCategory);
@@ -442,7 +707,9 @@ const router = {
       renderEngine.renderFeatured();
       renderEngine.renderHomepageBuilders();
     } else if (hash === "projects") {
-      renderEngine.renderDirectory(this.activeCategory, this.searchQuery);
+      renderEngine.renderDirectory(this.activeCategory, this.searchQuery, this.myProjectsOnly);
+    } else if (hash === "my-projects") {
+      renderEngine.renderMyProjects();
     } else if (hash === "builders") {
       renderEngine.renderBuilders();
     }
@@ -534,10 +801,69 @@ const notifications = {
   }
 };
 
+// --- 6.6 PREMIUM CONFIRM MODAL CONTROLLER ---
+const confirmModal = {
+  resolveFn: null,
+
+  show() {
+    const modal = document.getElementById("custom-confirm-modal");
+    if (!modal) return Promise.resolve(false);
+
+    modal.classList.remove("hidden");
+    modal.offsetHeight; // force reflow
+    modal.classList.add("active");
+
+    return new Promise((resolve) => {
+      this.resolveFn = resolve;
+    });
+  },
+
+  close(result = false) {
+    const modal = document.getElementById("custom-confirm-modal");
+    if (!modal) return;
+
+    modal.classList.remove("active");
+    setTimeout(() => {
+      if (!modal.classList.contains("active")) {
+        modal.classList.add("hidden");
+      }
+    }, 300);
+
+    if (this.resolveFn) {
+      this.resolveFn(result);
+      this.resolveFn = null;
+    }
+  }
+};
+
 // --- 7. EVENT ACTION REGISTRATION ---
-document.addEventListener("DOMContentLoaded", () => {
+const initApp = () => {
   router.init();
   drawer.init();
+
+  // Confirm modal event listeners
+  document.getElementById("confirm-modal-close-btn")?.addEventListener("click", () => {
+    confirmModal.close(false);
+  });
+  document.getElementById("confirm-modal-cancel-btn")?.addEventListener("click", () => {
+    confirmModal.close(false);
+  });
+  document.getElementById("confirm-modal-delete-btn")?.addEventListener("click", () => {
+    confirmModal.close(true);
+  });
+  document.getElementById("custom-confirm-modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "custom-confirm-modal") {
+      confirmModal.close(false);
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const modal = document.getElementById("custom-confirm-modal");
+      if (modal && !modal.classList.contains("hidden") && modal.classList.contains("active")) {
+        confirmModal.close(false);
+      }
+    }
+  });
 
   // Character limit validation for project submission description
   const descTextarea = document.getElementById("form-description");
@@ -553,9 +879,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const cat = pill.dataset.category;
     router.activeCategory = cat;
+    router.myProjectsOnly = false; // Reset my projects filter on new category
     renderEngine.renderCategoryFilters(cat);
     renderEngine.renderFeatured();
-    renderEngine.renderDirectory(cat, router.searchQuery);
+    renderEngine.renderDirectory(cat, router.searchQuery, false);
   };
 
   document.getElementById("category-filters-pills")?.addEventListener("click", handleCategoryFilterClick);
@@ -567,6 +894,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const handleSearchInput = (value) => {
     router.searchQuery = value;
+    router.myProjectsOnly = false; // Reset my projects filter on global search
     
     // Sync values
     if (navSearchInput && navSearchInput.value !== value) navSearchInput.value = value;
@@ -579,11 +907,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Dynamic filtering
     renderEngine.renderFeatured();
-    renderEngine.renderDirectory(router.activeCategory, router.searchQuery);
+    renderEngine.renderDirectory(router.activeCategory, router.searchQuery, router.myProjectsOnly);
   };
 
   navSearchInput?.addEventListener("input", (e) => handleSearchInput(e.target.value));
   mobSearchInput?.addEventListener("input", (e) => handleSearchInput(e.target.value));
+
+  // Reset myProjects filter when clicking the main Projects nav links
+  document.querySelectorAll('a[href="#/projects"]').forEach(link => {
+    link.addEventListener("click", () => {
+      router.myProjectsOnly = false;
+    });
+  });
 
   // --- Logo Upload Logic ---
   let uploadedLogoBase64 = null;
@@ -696,8 +1031,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("project-submission-form");
   const successCard = document.getElementById("submit-success-card");
   
-  form?.addEventListener("submit", (e) => {
+  form?.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const currentUser = window.ArcFirebase ? window.ArcFirebase.currentUser : null;
+    if (!currentUser) {
+      notifications.show("Authentication Required", "You must be signed in to submit a project.", "error");
+      return;
+    }
 
     const name = document.getElementById("form-project-name").value.trim();
     const category = document.getElementById("form-category").value;
@@ -715,8 +1056,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const nameLower = name.toLowerCase();
     const websiteLower = website.toLowerCase();
 
-    const nameConflict = state.projects.some(p => p.name.trim().toLowerCase() === nameLower);
-    const websiteConflict = state.projects.some(p => p.website.trim().toLowerCase() === websiteLower);
+    const editId = form.dataset.editId;
+    console.log("[Form Submit] Form submitted. Detected editId (document ID):", editId);
+    const originalProject = editId ? state.projects.find(p => p.id === editId) : null;
+    if (editId) {
+      console.log("[Form Submit] Original project object found in state:", originalProject);
+    }
+
+
+    const nameConflict = state.projects.some(p => {
+      if (originalProject && p.id === originalProject.id) return false;
+      return p.name.trim().toLowerCase() === nameLower;
+    });
+
+    const websiteConflict = state.projects.some(p => {
+      if (originalProject && p.id === originalProject.id) return false;
+      return p.website.trim().toLowerCase() === websiteLower;
+    });
 
     if (nameConflict || websiteConflict) {
       notifications.show("Duplicate Submission", "This project has already been submitted.", "error");
@@ -746,26 +1102,307 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    state.addProject({
-      name,
-      category,
-      description,
-      website,
-      xUrl,
-      builderName,
-      logo: uploadedLogoBase64
+    const submitBtn = form.querySelector(".btn-submit-premium");
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = `<span>${editId ? 'Saving...' : 'Submitting...'}</span>`;
+    submitBtn.disabled = true;
+
+    try {
+      if (editId) {
+        await state.updateProject(editId, {
+          name,
+          category,
+          description,
+          website,
+          xUrl,
+          builderName,
+          logo: uploadedLogoBase64
+        });
+
+        notifications.show("Update Success", "Project updated successfully.", "success");
+        window.location.hash = "#/my-projects";
+      } else {
+        await state.addProject({
+          name,
+          category,
+          description,
+          website,
+          xUrl,
+          builderName,
+          logo: uploadedLogoBase64
+        });
+
+        notifications.show("Submission Success", "Project submitted successfully.", "success");
+        
+        // Toggle screens
+        form.classList.add("hidden");
+        successCard.classList.remove("hidden");
+      }
+
+      // Re-render views
+      renderEngine.renderDirectory(router.activeCategory, router.searchQuery, router.myProjectsOnly);
+      renderEngine.renderFeatured();
+      renderEngine.renderMyProjects();
+      renderEngine.updateStats();
+    } catch (err) {
+      notifications.show(editId ? "Update Failed" : "Submission Failed", err.message || "An error occurred.", "error");
+    } finally {
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
+    }
+  });
+
+  // Like, Edit, & Delete button click events delegation
+  document.addEventListener("click", async (e) => {
+    // Global Auth Sign In
+    const signinBtn = e.target.closest(".btn-signin");
+    if (signinBtn) {
+      e.preventDefault();
+      try {
+        await window.ArcFirebase.signInWithGoogle();
+      } catch (err) {
+        console.error("Sign in failed:", err);
+      }
+      return;
+    }
+
+    // Global Auth Sign Out
+    const signoutBtn = e.target.closest(".btn-signout");
+    if (signoutBtn) {
+      e.preventDefault();
+      signoutBtn.closest(".dropdown-menu")?.classList.add("hidden");
+      await window.ArcFirebase.signOutUser();
+      return;
+    }
+
+    // Global My Projects Navigation
+    const myProjectsBtn = e.target.closest(".btn-myprojects");
+    if (myProjectsBtn) {
+      e.preventDefault();
+      myProjectsBtn.closest(".dropdown-menu")?.classList.add("hidden");
+      window.location.hash = "#/my-projects";
+      return;
+    }
+
+    // Global Auth Avatar Toggle
+    const avatarToggle = e.target.closest(".user-avatar");
+    if (avatarToggle) {
+      e.preventDefault();
+      e.stopPropagation();
+      const menu = avatarToggle.parentElement.querySelector(".dropdown-menu");
+      menu?.classList.toggle("hidden");
+      return;
+    }
+
+    // Like Project Action
+    const likeBtn = e.target.closest(".btn-like-project");
+    if (likeBtn) {
+      e.preventDefault();
+      
+      const currentUser = window.ArcFirebase ? window.ArcFirebase.currentUser : null;
+      if (!currentUser) {
+        notifications.show("Authentication Required", "Please sign in to like projects.", "error");
+        try {
+          await window.ArcFirebase.signInWithGoogle();
+        } catch (err) {
+          console.error("Sign in failed:", err);
+        }
+        return;
+      }
+
+      const projectId = likeBtn.dataset.projectId;
+      const project = state.projects.find(p => p.id === projectId);
+      if (!project) return;
+
+      const isLiked = state.userLikes.has(projectId);
+      
+      // Optimistic UI Update
+      if (isLiked) {
+        state.userLikes.delete(projectId);
+        project.likesCount = Math.max(0, (project.likesCount || 0) - 1);
+        likeBtn.classList.remove("liked");
+        likeBtn.title = "Like this project";
+      } else {
+        state.userLikes.add(projectId);
+        project.likesCount = (project.likesCount || 0) + 1;
+        likeBtn.classList.add("liked");
+        likeBtn.title = "Unlike this project";
+      }
+      
+      const countEl = likeBtn.querySelector(".like-count");
+      if (countEl) {
+        countEl.textContent = project.likesCount;
+        countEl.style.transform = "scale(1.2)";
+        setTimeout(() => countEl.style.transform = "scale(1)", 150);
+      }
+
+      document.querySelectorAll(`.btn-like-project[data-project-id="${projectId}"]`).forEach(btn => {
+        if (btn !== likeBtn) {
+          if (isLiked) {
+            btn.classList.remove("liked");
+          } else {
+            btn.classList.add("liked");
+          }
+          const cEl = btn.querySelector(".like-count");
+          if (cEl) cEl.textContent = project.likesCount;
+        }
+      });
+
+      try {
+        if (isLiked) {
+          await window.ArcFirebase.unlikeProject(projectId, currentUser.uid);
+        } else {
+          await window.ArcFirebase.likeProject(projectId, currentUser.uid);
+        }
+      } catch (err) {
+        console.error("Error syncing like:", err);
+        if (isLiked) {
+          state.userLikes.add(projectId);
+          project.likesCount += 1;
+        } else {
+          state.userLikes.delete(projectId);
+          project.likesCount = Math.max(0, project.likesCount - 1);
+        }
+        
+        document.querySelectorAll(`.btn-like-project[data-project-id="${projectId}"]`).forEach(btn => {
+          if (isLiked) {
+            btn.classList.add("liked");
+          } else {
+            btn.classList.remove("liked");
+          }
+          const cEl = btn.querySelector(".like-count");
+          if (cEl) cEl.textContent = project.likesCount;
+        });
+        
+        notifications.show("Sync Failed", "Could not save your like. Please try again.", "error");
+      }
+      return;
+    }
+
+    // Edit Action
+    const editBtn = e.target.closest(".btn-edit-project");
+    if (editBtn) {
+      e.preventDefault();
+      const projectId = editBtn.dataset.projectId;
+      console.log("[Edit Flow] Edit button clicked. Project ID (document ID) from dataset:", projectId);
+      const project = state.projects.find(p => p.id === projectId);
+      if (project) {
+        console.log("[Edit Flow] Found matching project object in local state:", project);
+        form.classList.remove("hidden");
+        if (successCard) successCard.classList.add("hidden");
+
+        form.dataset.editId = project.id;
+        console.log("[Edit Flow] Form form.dataset.editId set to:", form.dataset.editId);
+
+        document.getElementById("form-project-name").value = project.name;
+        document.getElementById("form-category").value = project.category;
+        document.getElementById("form-description").value = project.description;
+        document.getElementById("form-website").value = project.website;
+        document.getElementById("form-twitter").value = project.xUrl || "";
+        document.getElementById("form-builder-name").value = project.builderName;
+
+        if (charCounter) charCounter.textContent = project.description.length;
+
+        if (project.logo) {
+          uploadedLogoBase64 = project.logo;
+          if (previewImage) previewImage.src = project.logo;
+          if (previewFilename) previewFilename.textContent = "project_logo.png";
+          uploadPrompt?.classList.add("hidden");
+          previewContainer?.classList.remove("hidden");
+        } else {
+          uploadedLogoBase64 = null;
+          if (fileInput) fileInput.value = "";
+          if (previewImage) previewImage.src = "";
+          previewContainer?.classList.add("hidden");
+          uploadPrompt?.classList.remove("hidden");
+        }
+        clearError();
+
+        const sectionTitle = document.querySelector("#section-submit .page-title");
+        const sectionDesc = document.querySelector("#section-submit .page-description");
+        const submitBtn = form.querySelector(".btn-submit-premium");
+
+        if (sectionTitle) sectionTitle.textContent = "Edit your Project";
+        if (sectionDesc) sectionDesc.textContent = "Update your project details in the ecosystem directory.";
+        if (submitBtn) {
+          submitBtn.innerHTML = `
+            <span>Save Changes</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          `;
+        }
+
+        window.location.hash = "#/submit";
+      }
+      return;
+    }
+
+    // Delete Action
+    const deleteBtn = e.target.closest(".btn-delete-project");
+    if (deleteBtn) {
+      e.preventDefault();
+      const projectId = deleteBtn.dataset.projectId;
+      const project = state.projects.find(p => p.id === projectId);
+      if (!project) return;
+
+      const confirmed = await confirmModal.show();
+      if (confirmed) {
+        try {
+          await state.deleteProject(projectId);
+          notifications.show("Delete Success", "Project deleted successfully.", "success");
+          
+          renderEngine.renderDirectory(router.activeCategory, router.searchQuery, router.myProjectsOnly);
+          renderEngine.renderFeatured();
+          renderEngine.renderMyProjects();
+          renderEngine.updateStats();
+        } catch (err) {
+          notifications.show("Delete Failed", err.message || "An error occurred.", "error");
+        }
+      }
+      return;
+    }
+  });
+
+  // Reset form to Create Mode helper
+  const resetFormToCreateMode = () => {
+    form.reset();
+    form.removeAttribute("data-edit-id");
+    form.dataset.editId = "";
+
+    const sectionTitle = document.querySelector("#section-submit .page-title");
+    const sectionDesc = document.querySelector("#section-submit .page-description");
+    const submitBtn = form.querySelector(".btn-submit-premium");
+
+    if (sectionTitle) sectionTitle.textContent = "Submit your Project";
+    if (sectionDesc) sectionDesc.textContent = "Register your product in the community directory to gain visibility and recruit early adopters.";
+    if (submitBtn) {
+      submitBtn.innerHTML = `
+        <span>List Project</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      `;
+    }
+
+    uploadedLogoBase64 = null;
+    if (fileInput) fileInput.value = "";
+    if (previewImage) previewImage.src = "";
+    previewContainer?.classList.add("hidden");
+    uploadPrompt?.classList.remove("hidden");
+    clearError();
+    if (charCounter) charCounter.textContent = "0";
+
+    successCard.classList.add("hidden");
+    form.classList.remove("hidden");
+  };
+
+  document.querySelectorAll('a[href="#/submit"]').forEach(link => {
+    link.addEventListener("click", () => {
+      resetFormToCreateMode();
     });
-
-    // Re-render and navigate updates
-    renderEngine.renderDirectory(router.activeCategory, router.searchQuery);
-    renderEngine.renderFeatured();
-    renderEngine.updateStats();
-
-    notifications.show("Submission Success", "Project submitted successfully.", "success");
-
-    // Toggle screens
-    form.classList.add("hidden");
-    successCard.classList.remove("hidden");
   });
 
   // Close notification button
@@ -776,17 +1413,121 @@ document.addEventListener("DOMContentLoaded", () => {
   // Form Reset Trigger
   const resetBtn = document.getElementById("submit-another-btn");
   resetBtn?.addEventListener("click", () => {
-    form.reset();
-    if (charCounter) charCounter.textContent = "0";
-    successCard.classList.add("hidden");
-    form.classList.remove("hidden");
-    
-    // Reset file upload state
-    uploadedLogoBase64 = null;
-    if (fileInput) fileInput.value = "";
-    if (previewImage) previewImage.src = "";
-    previewContainer?.classList.add("hidden");
-    uploadPrompt?.classList.remove("hidden");
-    clearError();
+    resetFormToCreateMode();
   });
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
+
+// --- 9. AUTHENTICATION UI LOGIC ---
+// --- 9. AUTHENTICATION UI LOGIC ---
+const updateAuthUI = (user) => {
+  const desktopContainer = document.getElementById("desktop-auth-container");
+  const mobileContainer = document.getElementById("mobile-auth-container");
+  
+  // Do not strictly require both containers; proceed if at least one exists
+  if (!desktopContainer && !mobileContainer) return;
+
+  if (user) {
+    const profileHtml = `
+      <div class="user-profile-dropdown">
+        <img src="${user.photoURL || 'https://via.placeholder.com/40'}" alt="User Avatar" class="user-avatar" id="auth-avatar-toggle">
+        <div class="dropdown-menu hidden" id="auth-dropdown-menu">
+          <div class="dropdown-header">
+            <span class="user-name">${user.displayName || 'Arc Builder'}</span>
+            <span class="user-email">${user.email}</span>
+          </div>
+          <button class="dropdown-item btn-myprojects" style="display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 8px;">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            My Projects
+          </button>
+          <button class="dropdown-item btn-signout" id="btn-signout">Sign Out</button>
+        </div>
+      </div>
+    `;
+    if (desktopContainer) desktopContainer.innerHTML = profileHtml;
+    if (mobileContainer) mobileContainer.innerHTML = profileHtml;
+  } else {
+    // Show Sign In buttons
+    const signinHtml = `<button class="nav-btn btn-primary-premium btn-signin" id="btn-signin-global">Sign In</button>`;
+    const mobileSigninHtml = `<button class="mobile-nav-btn btn-signin" id="btn-signin-mobile-global" style="width: 100%;">Sign In</button>`;
+    
+    if (desktopContainer) desktopContainer.innerHTML = signinHtml;
+    if (mobileContainer) mobileContainer.innerHTML = mobileSigninHtml;
+  }
+};
+
+// Handle the case where the event already fired before app.js parsed
+const handleStartupAuth = async () => {
+  if (window.ArcFirebase && window.ArcFirebase.currentUser !== null) {
+    const user = window.ArcFirebase.currentUser;
+    updateAuthUI(user);
+    if (window.ArcFirebase.getUserLikes) {
+      const likedIds = await window.ArcFirebase.getUserLikes(user.uid);
+      state.userLikes = new Set(likedIds);
+      
+      const hash = window.location.hash.slice(2).trim();
+      if (hash === "my-projects") {
+        renderEngine.renderMyProjects();
+      } else if (hash === "projects") {
+        renderEngine.renderDirectory(router.activeCategory, router.searchQuery, router.myProjectsOnly);
+      } else if (hash === "home") {
+        renderEngine.renderFeatured();
+      }
+    }
+  } else {
+    updateAuthUI(null);
+  }
+};
+handleStartupAuth();
+
+window.addEventListener("arc-auth-changed", async (e) => {
+  updateAuthUI(e.detail.user);
+  
+  // Refresh likes cache for the signed-in user
+  if (e.detail.user) {
+    if (window.ArcFirebase && window.ArcFirebase.getUserLikes) {
+      const likedIds = await window.ArcFirebase.getUserLikes(e.detail.user.uid);
+      state.userLikes = new Set(likedIds);
+    }
+  } else {
+    state.userLikes = new Set();
+  }
+  
+  // Refresh grids on authentication state changes to dynamically render action buttons and heart states
+  const hash = window.location.hash.slice(2).trim();
+  if (hash === "my-projects") {
+    renderEngine.renderMyProjects();
+  } else if (hash === "projects") {
+    renderEngine.renderDirectory(router.activeCategory, router.searchQuery, router.myProjectsOnly);
+  } else if (hash === "home") {
+    renderEngine.renderFeatured();
+  }
 });
+
+// Single global document click listener to handle closing open dropdowns.
+// This prevents multiple listeners from causing DOM recalculations that close native selects.
+document.addEventListener("click", (e) => {
+  // Ignore clicks inside form groups and native selects to prevent unintended blur events
+  if (e.target.closest(".form-group-premium, select, input, textarea")) return;
+
+  let dropdownsClosed = false;
+  document.querySelectorAll(".dropdown-menu").forEach(menu => {
+    if (!menu.classList.contains("hidden") && !menu.parentElement.contains(e.target)) {
+      menu.classList.add("hidden");
+      dropdownsClosed = true;
+    }
+  });
+  
+  // If we closed a dropdown, stop propagation just in case to prevent other global click handlers
+  if (dropdownsClosed) {
+    // e.stopPropagation(); // Only if needed, but usually mutating classList is enough.
+  }
+});
+
