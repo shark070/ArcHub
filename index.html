@@ -275,13 +275,13 @@
             <div class="about-main-body">
               <p>Arc Hub is an independent ecosystem directory designed to help users discover the projects, builders, and infrastructure shaping the Arc ecosystem.</p>
               <p>From developer tools and DeFi applications to community initiatives and emerging platforms, Arc Hub brings everything together in one accessible hub.</p>
-              <p>Whether you're building on Arc or exploring what the ecosystem has to offer, Arc Hub makes it easier to find, showcase, and connect with the people and projects driving innovation.</p>
+              <p>Whether you're building on Arc or exploring what the ecosystem has to offer, Arc Hub makes it easier to find, showcase, and connect with the people and projects driving innovatio[...]
             </div>
 
             <!-- Support & Feedback footer inside card -->
             <div class="about-main-footer">
               <h3 class="about-support-title">Support &amp; Feedback</h3>
-              <p class="about-support-desc">Arc Hub is actively evolving and community feedback plays a key role in shaping future updates.<br><br>Have suggestions, feature requests, partnership opportunities, or found a bug?</p>
+              <p class="about-support-desc">Arc Hub is actively evolving and community feedback plays a key role in shaping future updates.<br><br>Have suggestions, feature requests, partnership [...]
               
               <div class="about-support-contact">
                 <span class="about-support-label">Contact:</span>
@@ -311,9 +311,9 @@
                 <h3 class="about-info-card-title">Platform Stats</h3>
               </div>
               <ul class="about-roadmap-list" style="gap: 8px;">
-                <li><span style="width: 100%; display: flex; justify-content: space-between;">Projects Listed: <strong id="about-stats-projects" style="color: var(--text-title); font-weight: 600;">0</strong></span></li>
-                <li><span style="width: 100%; display: flex; justify-content: space-between;">Builders Registered: <strong id="about-stats-builders" style="color: var(--text-title); font-weight: 600;">0</strong></span></li>
-                <li><span style="width: 100%; display: flex; justify-content: space-between;">Categories: <strong id="about-stats-categories" style="color: var(--text-title); font-weight: 600;">0</strong></span></li>
+                <li><span style="width: 100%; display: flex; justify-content: space-between;">Projects Listed: <strong id="about-stats-projects" style="color: var(--text-title); font-weight: 600;[...]
+                <li><span style="width: 100%; display: flex; justify-content: space-between;">Builders Registered: <strong id="about-stats-builders" style="color: var(--text-title); font-weight: [...]
+                <li><span style="width: 100%; display: flex; justify-content: space-between;">Categories: <strong id="about-stats-categories" style="color: var(--text-title); font-weight: 600;">0[...]
                 <li>
                   <span style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
                     Platform Status: 
@@ -508,6 +508,27 @@
       </div>
     </div>
   </footer>
+
+  <!-- Announcement Modal (V2 Launch) -->
+  <div id="announcement-modal" class="announcement-modal-overlay hidden">
+    <div class="announcement-modal-box">
+      <button class="announcement-modal-close" id="announcement-modal-close" aria-label="Close Announcement">&times;</button>
+      <div class="announcement-modal-content">
+        <div class="announcement-modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <h2 class="announcement-modal-title">Arc Hub V2 is Now Live</h2>
+        <p class="announcement-modal-message">A new version of Arc Hub is now available with an improved experience and the latest updates. We recommend using Arc Hub V2 going forward.</p>
+        <div class="announcement-modal-actions">
+          <button id="announcement-visit-v2" class="btn-announcement-primary">Visit Arc Hub V2</button>
+          <button id="announcement-continue" class="btn-announcement-secondary">Continue to Current Site</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Premium Custom Notification Modal (Centered with Blurred Backdrop) -->
   <div id="custom-notification" class="notification-overlay hidden">
